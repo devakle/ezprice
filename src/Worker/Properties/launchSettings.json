@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "EZPrice.Worker": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "PLAYWRIGHT_CDP_URL": "ws://localhost:3000?token=changeme"
+      }
+    }
+  }
+}
