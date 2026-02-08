@@ -132,23 +132,32 @@ public class ScrapeResultStore : IScrapeResultStore
         }
         catch (DbUpdateException ex) when (IsSearchQueryUniqueViolation(ex))
         {
-            var addedQuery = _dbContext.ChangeTracker.Entries<SearchQuery>()
-                .FirstOrDefault(e => e.State == EntityState.Added && e.Entity.QueryKey == job.QueryKey);
-            if (addedQuery is not null)
+            var trackedQueries = _dbContext.ChangeTracker.Entries<SearchQuery>()
+                .Where(e => e.Entity.QueryKey == job.QueryKey)
+                .ToList();
+            foreach (var entry in trackedQueries)
             {
-                addedQuery.State = EntityState.Detached;
+                entry.State = EntityState.Detached;
             }
 
             var existing = await _dbContext.SearchQueries
                 .SingleOrDefaultAsync(q => q.QueryKey == job.QueryKey, cancellationToken);
             if (existing is null)
             {
-                throw;
+                _dbContext.SearchQueries.Add(new SearchQuery
+                {
+                    Query = job.Query,
+                    QueryKey = job.QueryKey,
+                    LastRequestedAt = job.RequestedAt,
+                    LastRefreshedAt = now
+                });
             }
-
-            existing.Query = job.Query;
-            existing.LastRequestedAt = job.RequestedAt;
-            existing.LastRefreshedAt = now;
+            else
+            {
+                existing.Query = job.Query;
+                existing.LastRequestedAt = job.RequestedAt;
+                existing.LastRefreshedAt = now;
+            }
 
             await _dbContext.SaveChangesAsync(cancellationToken);
         }

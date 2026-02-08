@@ -1,0 +1,28 @@
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.card-img-top {
+  height: 160px;
+  object-fit: contain;
+  background: #f8f9fa;
+}
+
+.price {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
