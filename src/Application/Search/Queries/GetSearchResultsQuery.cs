@@ -7,7 +7,8 @@ using System.Linq;
 
 namespace EZPrice.Application.Search.Queries;
 
-public record GetSearchResultsQuery(string Query, int Page = 1) : IRequest<SearchResultsVm>;
+public record GetSearchResultsQuery(string Query, int Page = 1, SearchSortOrder Sort = SearchSortOrder.None)
+    : IRequest<SearchResultsVm>;
 
 public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuery, SearchResultsVm>
 {
@@ -61,22 +62,30 @@ public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuer
             {
                 Query = request.Query,
                 Page = request.Page,
-                Items = cached.Items,
+                Items = ApplySort(cached.Items, request.Sort),
                 Sources = cached.Sources,
                 RequestId = requestId
             };
         }
 
-        var indexResults = await _index.SearchAsync(queryKey.Value, request.Query, request.Page, _options.PageSize, cancellationToken);
+        var indexResults = await _index.SearchAsync(
+            queryKey.Value,
+            request.Query,
+            request.Page,
+            _options.PageSize,
+            request.Sort,
+            cancellationToken);
         var sources = BuildSources(SearchSourceStates.Pending, TimeSpan.Zero, request.Page);
 
         await EnqueueRefreshAsync(request.Query, queryKey.Value, request.Page, now, cancellationToken);
+
+        var sortedItems = ApplySort(indexResults.Items, request.Sort);
 
         var entry = new SearchCacheEntry
         {
             CachedAt = now,
             TtlSeconds = _options.CacheTtlSeconds,
-            Items = indexResults.Items,
+            Items = sortedItems,
             Sources = sources
         };
 
@@ -86,7 +95,7 @@ public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuer
         {
             Query = request.Query,
             Page = request.Page,
-            Items = indexResults.Items,
+            Items = sortedItems,
             Sources = sources,
             RequestId = requestId
         };
@@ -123,5 +132,21 @@ public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuer
             var source = sources[i];
             sources[i] = source with { Status = status, FreshnessSeconds = (int)freshness.TotalSeconds };
         }
+    }
+
+    private static List<SearchResultItem> ApplySort(IEnumerable<SearchResultItem> items, SearchSortOrder sort)
+    {
+        return sort switch
+        {
+            SearchSortOrder.PriceAsc => items
+                .OrderBy(item => item.PriceAmount)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            SearchSortOrder.PriceDesc => items
+                .OrderByDescending(item => item.PriceAmount)
+                .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            _ => items.ToList()
+        };
     }
 }

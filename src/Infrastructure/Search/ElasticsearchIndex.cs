@@ -22,13 +22,19 @@ public class ElasticsearchIndex : ISearchIndex
         _options = options.Value;
     }
 
-    public async Task<SearchIndexResult> SearchAsync(string queryKey, string query, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<SearchIndexResult> SearchAsync(
+        string queryKey,
+        string query,
+        int page,
+        int pageSize,
+        SearchSortOrder sort,
+        CancellationToken cancellationToken)
     {
         await EnsureIndexAsync(cancellationToken);
 
         var from = Math.Max(0, (page - 1) * pageSize);
 
-        var response = await _client.SearchAsync<OfferDocument>(s => s
+        var request = new SearchRequestDescriptor<OfferDocument>()
             .Index(_options.IndexName)
             .From(from)
             .Size(pageSize)
@@ -36,8 +42,16 @@ public class ElasticsearchIndex : ISearchIndex
                 .Bool(b => b
                     .Filter(f => f.Term(t => t.Field(doc => doc.QueryKey).Value(queryKey)))
                     .Must(m => m.Match(mt => mt.Field(doc => doc.Title).Query(query)))
-                )),
-            cancellationToken);
+                ));
+
+        request = sort switch
+        {
+            SearchSortOrder.PriceAsc => request.Sort(so => so.Field(f => f.PriceAmount, fs => fs.Order(SortOrder.Asc))),
+            SearchSortOrder.PriceDesc => request.Sort(so => so.Field(f => f.PriceAmount, fs => fs.Order(SortOrder.Desc))),
+            _ => request
+        };
+
+        var response = await _client.SearchAsync(request, cancellationToken);
 
         if (!response.IsValidResponse)
         {

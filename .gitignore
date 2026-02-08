@@ -457,6 +457,9 @@ Temporary Items
 Thumbs.db
 ehthumbs.db
 ehthumbs_vista.db
+ezprice.dev.db
+ezprice.dev.db-shm
+ezprice.dev.db-wal
 
 # Dump file
 *.stackdump

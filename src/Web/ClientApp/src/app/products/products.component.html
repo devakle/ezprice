@@ -27,6 +27,20 @@
       [disabled]="loading"
     />
   </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label" for="sort">Orden</label>
+    <select
+      id="sort"
+      class="form-select"
+      name="sort"
+      [(ngModel)]="sort"
+      [disabled]="loading"
+    >
+      <option value="None">Relevancia</option>
+      <option value="PriceAsc">Precio: menor a mayor</option>
+      <option value="PriceDesc">Precio: mayor a menor</option>
+    </select>
+  </div>
   <div class="col-6 col-md-2 d-grid">
     <button class="btn btn-primary" type="submit" [disabled]="loading">
       Buscar

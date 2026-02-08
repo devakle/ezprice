@@ -15,7 +15,7 @@ import { HttpClient, HttpHeaders, HttpResponse, HttpResponseBase } from '@angula
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL');
 
 export interface ISearchClient {
-    getSearchResults(q: string, page: number | undefined): Observable<SearchResultsVm>;
+    getSearchResults(q: string, page?: number | undefined, sort?: SearchSortOrder | undefined): Observable<SearchResultsVm>;
 }
 
 @Injectable({
@@ -31,7 +31,7 @@ export class SearchClient implements ISearchClient {
         this.baseUrl = baseUrl ?? "";
     }
 
-    getSearchResults(q: string, page: number | undefined): Observable<SearchResultsVm> {
+    getSearchResults(q: string, page?: number | undefined, sort?: SearchSortOrder | undefined): Observable<SearchResultsVm> {
         let url_ = this.baseUrl + "/api/search?";
         if (q === undefined || q === null)
             throw new globalThis.Error("The parameter 'q' must be defined and cannot be null.");
@@ -41,6 +41,10 @@ export class SearchClient implements ISearchClient {
             throw new globalThis.Error("The parameter 'page' cannot be null.");
         else if (page !== undefined)
             url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_ : any = {
@@ -855,6 +859,12 @@ export interface ISearchSourceStatus {
     freshnessSeconds?: number;
     hasMore?: boolean;
     nextPageToken?: string | undefined;
+}
+
+export enum SearchSortOrder {
+    None = 0,
+    PriceAsc = 1,
+    PriceDesc = 2,
 }
 
 export class PaginatedListOfTodoItemBriefDto implements IPaginatedListOfTodoItemBriefDto {

@@ -13,9 +13,13 @@ public class Search : EndpointGroupBase
         groupBuilder.MapGet(GetSearchResults);
     }
 
-    public async Task<Ok<SearchResultsVm>> GetSearchResults(ISender sender, string q, int page = 1)
+    public async Task<Ok<SearchResultsVm>> GetSearchResults(
+        ISender sender,
+        string q,
+        int page = 1,
+        SearchSortOrder sort = SearchSortOrder.None)
     {
-        var results = await sender.Send(new GetSearchResultsQuery(q, page));
+        var results = await sender.Send(new GetSearchResultsQuery(q, page, sort));
         return TypedResults.Ok(results);
     }
 }

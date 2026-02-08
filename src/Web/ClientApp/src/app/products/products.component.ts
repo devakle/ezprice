@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
-import { SearchClient, SearchResultItem, SearchResultsVm } from '../web-api-client';
+import { SearchResultItem, SearchResultsVm } from '../web-api-client';
+import { SearchService, SearchSortOrder } from '../search/search.service';
 
 @Component({
   selector: 'app-products',
@@ -9,11 +10,12 @@ import { SearchClient, SearchResultItem, SearchResultsVm } from '../web-api-clie
 export class ProductsComponent {
   query = '';
   page = 1;
+  sort: SearchSortOrder = 'None';
   loading = false;
   error: string | null = null;
   results: SearchResultsVm | null = null;
 
-  constructor(private searchClient: SearchClient) {}
+  constructor(private searchService: SearchService) {}
 
   search(): void {
     const trimmed = this.query.trim();
@@ -28,7 +30,9 @@ export class ProductsComponent {
     this.loading = true;
     this.error = null;
 
-    this.searchClient.getSearchResults(trimmed, page).subscribe({
+    const sort = this.sort && this.sort !== 'None' ? this.sort : undefined;
+
+    this.searchService.search(trimmed, page, sort).subscribe({
       next: result => {
         this.results = result;
       },

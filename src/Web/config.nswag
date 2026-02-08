@@ -35,7 +35,7 @@
       "nullValue": "Undefined",
       "generateClientClasses": true,
       "generateClientInterfaces": true,
-      "generateOptionalParameters": false,
+      "generateOptionalParameters": true,
       "exportTypes": true,
       "wrapDtoExceptions": false,
       "exceptionClass": "SwaggerException",

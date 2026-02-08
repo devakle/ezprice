@@ -31,6 +31,19 @@
               "default": 1
             },
             "x-position": 2
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SearchSortOrder"
+                }
+              ]
+            },
+            "x-position": 3
           }
         ],
         "responses": {
@@ -453,6 +466,20 @@
             "nullable": true
           }
         }
+      },
+      "SearchSortOrder": {
+        "type": "integer",
+        "description": "",
+        "x-enumNames": [
+          "None",
+          "PriceAsc",
+          "PriceDesc"
+        ],
+        "enum": [
+          0,
+          1,
+          2
+        ]
       },
       "PaginatedListOfTodoItemBriefDto": {
         "type": "object",

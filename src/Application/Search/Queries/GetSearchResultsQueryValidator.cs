@@ -12,5 +12,8 @@ public class GetSearchResultsQueryValidator : AbstractValidator<GetSearchResults
 
         RuleFor(v => v.Page)
             .GreaterThanOrEqualTo(1);
+
+        RuleFor(v => v.Sort)
+            .IsInEnum();
     }
 }
