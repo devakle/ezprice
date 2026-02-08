@@ -1,13 +1,11 @@
 using EZPrice.Application.Common.Interfaces;
 using EZPrice.Application.Common.Options;
 using EZPrice.Application.Search.Models;
-using EZPrice.Domain.Entities;
 using EZPrice.Domain.ValueObjects;
 using EZPrice.Infrastructure.Data;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Linq;
+using EZPrice.Domain.Entities;
 
 namespace EZPrice.Infrastructure.Search;
 
@@ -55,7 +53,7 @@ public class ScrapeResultStore : IScrapeResultStore
         }
 
         await UpsertSearchQueryAsync(job, now, cancellationToken);
-        await SaveChangesWithQueryKeyRetryAsync(job, now, cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _index.UpsertAsync(job, items, cancellationToken);
         await UpdateCacheAsync(job, items, now, cancellationToken);
@@ -103,74 +101,33 @@ public class ScrapeResultStore : IScrapeResultStore
 
     private async Task UpsertSearchQueryAsync(SearchJob job, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var existing = await _dbContext.SearchQueries
-            .SingleOrDefaultAsync(q => q.QueryKey == job.QueryKey, cancellationToken);
-
-        if (existing is null)
-        {
-            _dbContext.SearchQueries.Add(new SearchQuery
-            {
-                Query = job.Query,
-                QueryKey = job.QueryKey,
-                LastRequestedAt = job.RequestedAt,
-                LastRefreshedAt = now
-            });
-        }
-        else
-        {
-            existing.Query = job.Query;
-            existing.LastRequestedAt = job.RequestedAt;
-            existing.LastRefreshedAt = now;
-        }
-    }
-
-    private async Task SaveChangesWithQueryKeyRetryAsync(SearchJob job, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex) when (IsSearchQueryUniqueViolation(ex))
-        {
-            var trackedQueries = _dbContext.ChangeTracker.Entries<SearchQuery>()
-                .Where(e => e.Entity.QueryKey == job.QueryKey)
-                .ToList();
-            foreach (var entry in trackedQueries)
-            {
-                entry.State = EntityState.Detached;
-            }
-
-            var existing = await _dbContext.SearchQueries
-                .SingleOrDefaultAsync(q => q.QueryKey == job.QueryKey, cancellationToken);
-            if (existing is null)
-            {
-                _dbContext.SearchQueries.Add(new SearchQuery
-                {
-                    Query = job.Query,
-                    QueryKey = job.QueryKey,
-                    LastRequestedAt = job.RequestedAt,
-                    LastRefreshedAt = now
-                });
-            }
-            else
-            {
-                existing.Query = job.Query;
-                existing.LastRequestedAt = job.RequestedAt;
-                existing.LastRefreshedAt = now;
-            }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    private static bool IsSearchQueryUniqueViolation(DbUpdateException ex)
-    {
-        if (ex.InnerException is not SqliteException sqliteEx)
-        {
-            return false;
-        }
-
-        return sqliteEx.SqliteErrorCode == 19
-            && sqliteEx.Message.Contains("UNIQUE constraint failed: SearchQueries.QueryKey", StringComparison.OrdinalIgnoreCase);
+        await _dbContext.Database.ExecuteSqlInterpolatedAsync($@"
+            INSERT INTO SearchQueries (
+                Query,
+                QueryKey,
+                LastRequestedAt,
+                LastRefreshedAt,
+                Created,
+                CreatedBy,
+                LastModified,
+                LastModifiedBy
+            )
+            VALUES (
+                {job.Query},
+                {job.QueryKey},
+                {job.RequestedAt},
+                {now},
+                {now},
+                {null},
+                {now},
+                {null}
+            )
+            ON CONFLICT(QueryKey) DO UPDATE SET
+                Query = excluded.Query,
+                LastRequestedAt = excluded.LastRequestedAt,
+                LastRefreshedAt = excluded.LastRefreshedAt,
+                LastModified = excluded.LastModified,
+                LastModifiedBy = excluded.LastModifiedBy
+        ", cancellationToken);
     }
 }
