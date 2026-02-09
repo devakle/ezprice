@@ -13,7 +13,11 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    await app.InitialiseDatabaseAsync();
+    var skipDbInit = builder.Configuration.GetValue<bool>("SkipDbInit");
+    if (!skipDbInit)
+    {
+        await app.InitialiseDatabaseAsync();
+    }
 }
 else
 {

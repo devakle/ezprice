@@ -5,7 +5,6 @@ using EZPrice.Domain.ValueObjects;
 using EZPrice.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using EZPrice.Domain.Entities;
 
 namespace EZPrice.Infrastructure.Search;
 
@@ -35,28 +34,65 @@ public class ScrapeResultStore : IScrapeResultStore
     {
         var now = _timeProvider.GetUtcNow();
 
-        foreach (var item in items)
-        {
-            _dbContext.Offers.Add(new Offer
-            {
-                Query = job.Query,
-                QueryKey = job.QueryKey,
-                Source = item.Source,
-                Title = item.Title,
-                PriceAmount = item.PriceAmount,
-                Currency = item.Currency,
-                Url = item.Url,
-                ImageUrl = item.ImageUrl,
-                Page = job.Page,
-                ScrapedAt = item.ScrapedAt
-            });
-        }
+        await UpsertOffersAsync(job, items, now, cancellationToken);
 
         await UpsertSearchQueryAsync(job, now, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _index.UpsertAsync(job, items, cancellationToken);
         await UpdateCacheAsync(job, items, now, cancellationToken);
+    }
+
+    private async Task UpsertOffersAsync(SearchJob job, IReadOnlyList<SearchResultItem> items, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        foreach (var item in items)
+        {
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO Offers (
+                    Query,
+                    QueryKey,
+                    Source,
+                    Title,
+                    PriceAmount,
+                    Currency,
+                    Url,
+                    ImageUrl,
+                    Page,
+                    ScrapedAt,
+                    Created,
+                    CreatedBy,
+                    LastModified,
+                    LastModifiedBy
+                )
+                VALUES (
+                    {job.Query},
+                    {job.QueryKey},
+                    {item.Source},
+                    {item.Title},
+                    {item.PriceAmount},
+                    {item.Currency},
+                    {item.Url},
+                    {item.ImageUrl},
+                    {job.Page},
+                    {item.ScrapedAt},
+                    {now},
+                    {null},
+                    {now},
+                    {null}
+                )
+                ON CONFLICT(Title, Url) DO UPDATE SET
+                    Query = excluded.Query,
+                    QueryKey = excluded.QueryKey,
+                    Source = excluded.Source,
+                    PriceAmount = excluded.PriceAmount,
+                    Currency = excluded.Currency,
+                    ImageUrl = excluded.ImageUrl,
+                    Page = excluded.Page,
+                    ScrapedAt = excluded.ScrapedAt,
+                    LastModified = excluded.LastModified,
+                    LastModifiedBy = excluded.LastModifiedBy
+            ", cancellationToken);
+        }
     }
 
     private async Task UpdateCacheAsync(SearchJob job, IReadOnlyList<SearchResultItem> items, DateTimeOffset now, CancellationToken cancellationToken)

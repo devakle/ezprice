@@ -36,5 +36,7 @@ public class OfferConfiguration : IEntityTypeConfiguration<Offer>
             .HasMaxLength(2048);
 
         builder.HasIndex(o => new { o.QueryKey, o.Source, o.Page });
+        builder.HasIndex(o => new { o.Title, o.Url })
+            .IsUnique();
     }
 }
