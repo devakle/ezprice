@@ -1,11 +1,17 @@
 services:
   redis:
     image: redis:7.2-alpine
+    mem_limit: 128m
+    cpus: "0.15"
+    pids_limit: 128
     ports:
       - "6379:6379"
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    mem_limit: 384m
+    cpus: "0.35"
+    pids_limit: 256
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -16,7 +22,10 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+    mem_limit: 768m
+    cpus: "0.75"
+    pids_limit: 512
     ports:
       - "9200:9200"
     volumes:
@@ -25,9 +34,12 @@ services:
   browserless:
     image: browserless/chrome:1.61-chrome-stable
     environment:
-      - MAX_CONCURRENT_SESSIONS=2
+      - MAX_CONCURRENT_SESSIONS=1
       - ENABLE_DEBUGGER=false
       - TOKEN=changeme
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 512
     ports:
       - "3000:3000"
 
