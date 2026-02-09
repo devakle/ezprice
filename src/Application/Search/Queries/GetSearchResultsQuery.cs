@@ -58,11 +58,17 @@ public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuer
                 UpdateStatuses(cached.Sources, SearchSourceStates.Ok, now - cached.CachedAt);
             }
 
+            var items = await ResolveItemsAsync(
+                request,
+                queryKey.Value,
+                cached.Items,
+                cancellationToken);
+
             return new SearchResultsVm
             {
                 Query = request.Query,
                 Page = request.Page,
-                Items = ApplySort(cached.Items, request.Sort),
+                Items = items,
                 Sources = cached.Sources,
                 RequestId = requestId
             };
@@ -99,6 +105,38 @@ public class GetSearchResultsQueryHandler : IRequestHandler<GetSearchResultsQuer
             Sources = sources,
             RequestId = requestId
         };
+    }
+
+    private async Task<List<SearchResultItem>> ResolveItemsAsync(
+        GetSearchResultsQuery request,
+        string queryKey,
+        List<SearchResultItem> cachedItems,
+        CancellationToken cancellationToken)
+    {
+        if (!IsGlobalSort(request.Sort))
+        {
+            return ApplySort(cachedItems, request.Sort);
+        }
+
+        var indexResults = await _index.SearchAsync(
+            queryKey,
+            request.Query,
+            request.Page,
+            _options.PageSize,
+            request.Sort,
+            cancellationToken);
+
+        if (indexResults.Items.Count > 0)
+        {
+            return indexResults.Items;
+        }
+
+        return ApplySort(cachedItems, request.Sort);
+    }
+
+    private static bool IsGlobalSort(SearchSortOrder sort)
+    {
+        return sort is SearchSortOrder.PriceAsc or SearchSortOrder.PriceDesc;
     }
 
     private async Task EnqueueRefreshAsync(string query, string queryKey, int page, DateTimeOffset now, CancellationToken cancellationToken)
